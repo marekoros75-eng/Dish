@@ -19,6 +19,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+          env:
+           npm_config_cache: false
+
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
