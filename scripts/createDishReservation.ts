@@ -1,13 +1,13 @@
-import { chromium } from 'playwright';
+import { chromium } from "playwright";
 
 async function run() {
-  const data = JSON.parse(process.env.RESERVATION_PAYLOAD);
+  const data = JSON.parse(process.env.RESERVATION_PAYLOAD!);
 
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
 
   await page.goto(`https://reservation.dish.co/reservation/add?date=${data.date}`, {
-    waitUntil: 'networkidle'
+    waitUntil: "networkidle"
   });
 
   await page.getByLabel(/Počet/i).fill(String(data.guests));
@@ -22,7 +22,7 @@ async function run() {
   await page.getByLabel(/E-mail/i).fill(data.email);
   await page.getByLabel(/Poznámka/i).fill(data.note ?? "");
 
-  await page.getByRole('button', { name: /Rezervovat|Odeslat/i }).click();
+  await page.getByRole("button", { name: /Rezervovat|Odeslat/i }).click();
 
   await page.waitForTimeout(3000);
   await browser.close();
