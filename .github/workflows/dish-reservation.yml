@@ -38,18 +38,15 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-        env:
-          npm_config_cache: "false"
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
-      # Build payload for both workflow_dispatch and repository_dispatch
       - name: Build reservation payload
         id: build_payload
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "payload={\"date\":\"${{ github.event.inputs.date }}\",\"time\":\"${{ github.event.inputs.time }}\",\"table\":${{ github.event.inputs.table }},\"notes\":\"${{ github.event.inputs.notes }}\"}" >> $GITHUB_OUTPUT
+            echo "payload=$(jq -nc --arg date '${{ github.event.inputs.date }}' --arg time '${{ github.event.inputs.time }}' --argjson table ${{ github.event.inputs.table }} --arg notes '${{ github.event.inputs.notes }}' '{date:$date, time:$time, table:$table, notes:$notes}')" >> $GITHUB_OUTPUT
           else
             echo "payload=${{ toJson(github.event.client_payload.payload) }}" >> $GITHUB_OUTPUT
           fi
