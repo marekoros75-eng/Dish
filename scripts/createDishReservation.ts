@@ -1,28 +1,43 @@
+import fs from "fs";
 import { chromium } from "playwright";
 
 // -----------------------------------------------------------------------------
-// 1) LOAD & VALIDATE PAYLOAD
+// 1) LOAD & VALIDATE PAYLOAD FROM FILE
 // -----------------------------------------------------------------------------
 
-function loadPayload() {
-  const raw = process.env.RESERVATION_PAYLOAD;
+function loadPayloadFromFile(): {
+  date: string;
+  time: string;
+  table: number;
+  notes: string;
+} {
+  const payloadPath = process.argv[2];
 
-  if (!raw || raw.trim() === "") {
-    throw new Error("RESERVATION_PAYLOAD is empty or missing.");
+  if (!payloadPath) {
+    throw new Error("Missing payload file path argument (expected: node ... createDishReservation.ts payload.json).");
+  }
+
+  if (!fs.existsSync(payloadPath)) {
+    throw new Error(`Payload file not found at path: ${payloadPath}`);
+  }
+
+  const raw = fs.readFileSync(payloadPath, "utf8").trim();
+
+  if (!raw) {
+    throw new Error("Payload file is empty.");
   }
 
   let parsed: any;
-
   try {
     parsed = JSON.parse(raw);
   } catch (e) {
-    console.error("RAW PAYLOAD:", raw);
-    throw new Error("RESERVATION_PAYLOAD is not valid JSON.");
+    console.error("RAW PAYLOAD CONTENT:", raw);
+    throw new Error("Payload file does not contain valid JSON.");
   }
 
   if (typeof parsed !== "object" || parsed === null) {
-    console.error("RAW PAYLOAD:", raw);
-    throw new Error("RESERVATION_PAYLOAD is not a valid object.");
+    console.error("RAW PAYLOAD CONTENT:", raw);
+    throw new Error("Payload JSON is not an object.");
   }
 
   if (!parsed.date) throw new Error("Missing required field: date");
@@ -31,16 +46,19 @@ function loadPayload() {
     throw new Error("Missing required field: table");
   }
 
-  parsed.notes = parsed.notes ?? "";
-
-  return parsed;
+  return {
+    date: String(parsed.date),
+    time: String(parsed.time),
+    table: Number(parsed.table),
+    notes: parsed.notes ? String(parsed.notes) : "",
+  };
 }
 
-const data = loadPayload();
+const data = loadPayloadFromFile();
 
-console.log("=== PAYLOAD LOADED ===");
+console.log("=== PAYLOAD LOADED FROM FILE ===");
 console.log(JSON.stringify(data, null, 2));
-console.log("=======================");
+console.log("================================");
 
 // -----------------------------------------------------------------------------
 // 2) LOAD CREDENTIALS
@@ -63,38 +81,34 @@ async function run() {
 
   const baseUrl = "https://reservation.dish.co";
 
-  console.log("Opening reservation page (will redirect to login if needed)…");
+  console.log("Opening reservation page (may redirect to login)…");
 
   await page.goto(`${baseUrl}/reservation/add?date=${data.date}`, {
     waitUntil: "networkidle",
   });
 
   // ---------------------------------------------------------------------------
-  // LOGIN PAGE
+  // LOGIN IF NEEDED
   // ---------------------------------------------------------------------------
 
   if (page.url().includes("login") || page.url().includes("signin")) {
     console.log("Login required. Filling login form…");
 
-    // Switch to email tab if present
     const emailTab = page.getByRole("tab", { name: /email/i });
     if (await emailTab.isVisible().catch(() => false)) {
       await emailTab.click();
     }
 
-    // Username/email
     await page
       .getByLabel(/username|email/i)
       .or(page.getByPlaceholder(/email/i))
       .fill(DISH_USERNAME);
 
-    // Password
     await page
       .getByLabel(/password/i)
       .or(page.getByPlaceholder(/password/i))
       .fill(DISH_PASSWORD);
 
-    // Submit
     await page
       .getByRole("button", { name: /sign in|log in|přihlásit/i })
       .click();
@@ -104,7 +118,7 @@ async function run() {
   }
 
   // ---------------------------------------------------------------------------
-  // OPEN RESERVATION PAGE AGAIN (now authenticated)
+  // OPEN RESERVATION PAGE AFTER LOGIN
   // ---------------------------------------------------------------------------
 
   console.log("Opening reservation page after login…");
@@ -116,38 +130,30 @@ async function run() {
   console.log("Reservation page loaded. Filling form…");
 
   // ---------------------------------------------------------------------------
-  // FORM FILLING — these selectors are robust and language‑agnostic
+  // FORM FILLING – selektory jsou obecné, případně je doladíme podle UI
   // ---------------------------------------------------------------------------
 
-  // Date
   const dateField = page.getByLabel(/date|datum/i);
   if (await dateField.isVisible().catch(() => false)) {
     await dateField.fill(data.date);
   }
 
-  // Time
   const timeField = page.getByLabel(/time|čas/i);
   if (await timeField.isVisible().catch(() => false)) {
     await timeField.fill(data.time);
   }
 
-  // Table
   const tableField = page.getByLabel(/table|stůl/i);
   if (await tableField.isVisible().catch(() => false)) {
     await tableField.fill(String(data.table));
   }
 
-  // Notes
   if (data.notes.trim() !== "") {
     const notesField = page.getByLabel(/note|poznámka/i);
     if (await notesField.isVisible().catch(() => false)) {
       await notesField.fill(data.notes);
     }
   }
-
-  // ---------------------------------------------------------------------------
-  // SUBMIT
-  // ---------------------------------------------------------------------------
 
   console.log("Submitting reservation…");
 
@@ -159,6 +165,7 @@ async function run() {
 
   console.log("Waiting for confirmation…");
 
+  await page.waitForTimeout(2000);
   await page.waitForSelector(
     /reservation created|rezervace byla úspěšně vytvořena/i,
     { timeout: 15000 }
@@ -173,6 +180,7 @@ run().catch((err) => {
   console.error(err);
   process.exit(1);
 });
+
 
 
 
