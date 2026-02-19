@@ -1,5 +1,5 @@
-import fs from "fs";
-import { chromium } from "playwright";
+const fs = require("fs");
+const { chromium } = require("playwright");
 
 // -----------------------------------------------------------------------------
 // 1) LOAD & VALIDATE PAYLOAD FROM FILE
@@ -22,7 +22,7 @@ function loadPayloadFromFile() {
     throw new Error("Payload file is empty.");
   }
 
-  let parsed: any;
+  let parsed;
   try {
     parsed = JSON.parse(raw);
   } catch (e) {
@@ -82,10 +82,7 @@ async function run() {
     waitUntil: "networkidle",
   });
 
-  // ---------------------------------------------------------------------------
   // LOGIN IF NEEDED
-  // ---------------------------------------------------------------------------
-
   if (page.url().includes("login") || page.url().includes("signin")) {
     console.log("Login required. Filling login form…");
 
@@ -112,10 +109,6 @@ async function run() {
     await page.waitForLoadState("networkidle");
   }
 
-  // ---------------------------------------------------------------------------
-  // OPEN RESERVATION PAGE AFTER LOGIN
-  // ---------------------------------------------------------------------------
-
   console.log("Opening reservation page after login…");
 
   await page.goto(`${baseUrl}/reservation/add?date=${data.date}`, {
@@ -123,10 +116,6 @@ async function run() {
   });
 
   console.log("Reservation page loaded. Filling form…");
-
-  // ---------------------------------------------------------------------------
-  // FORM FILLING
-  // ---------------------------------------------------------------------------
 
   const dateField = page.getByLabel(/date|datum/i);
   if (await dateField.isVisible().catch(() => false)) {
@@ -175,6 +164,7 @@ run().catch((err) => {
   console.error(err);
   process.exit(1);
 });
+
 
 
 
