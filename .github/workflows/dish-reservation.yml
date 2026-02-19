@@ -2,29 +2,9 @@ name: Create DISH reservation
 
 on:
   workflow_dispatch:
-    inputs:
-      date:
-        description: "Reservation date (YYYY-MM-DD)"
-        required: true
-        type: string
-      time:
-        description: "Reservation time (HH:MM)"
-        required: true
-        type: string
-      table:
-        description: "Table number"
-        required: true
-        type: number
-      notes:
-        description: "Optional notes"
-        required: false
-        type: string
-
-  repository_dispatch:
-    types: [dish_manual_reservation]
 
 jobs:
-  create-dish-reservation:
+  run-script:
     runs-on: ubuntu-latest
 
     steps:
@@ -34,43 +14,16 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 20
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps
+      - name: Build TypeScript
+        run: npm run build
 
-      # ---------------------------------------------------------
-      # BUILD payload.json
-      # ---------------------------------------------------------
-      - name: Build payload.json
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "{
-              \"date\": \"${{ github.event.inputs.date }}\",
-              \"time\": \"${{ github.event.inputs.time }}\",
-              \"table\": ${{ github.event.inputs.table }},
-              \"notes\": \"${{ github.event.inputs.notes }}\"
-            }" > payload.json
-          else
-            echo '${{ toJson(github.event.client_payload.payload) }}' > payload.json
-          fi
-
-      - name: Debug payload.json
-        run: |
-          echo "=== payload.json ==="
-          cat payload.json
-          echo "===================="
-
-      # ---------------------------------------------------------
-      # RUN SCRIPT (CommonJS, no ESM loaders)
-      # ---------------------------------------------------------
       - name: Run DISH reservation script
-        env:
-          DISH_USERNAME: ${{ secrets.DISH_USERNAME }}
-          DISH_PASSWORD: ${{ secrets.DISH_PASSWORD }}
-        run: npx ts-node scripts/createDishReservation.ts payload.json
+        run: node dist/scripts/createDishReservation.js payload.json
+
 
 
