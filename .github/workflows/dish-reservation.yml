@@ -42,18 +42,24 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
-      - name: Build reservation payload
-        id: build_payload
+      - name: Build payload
+        id: payload
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "payload=$(jq -nc --arg date '${{ github.event.inputs.date }}' --arg time '${{ github.event.inputs.time }}' --argjson table ${{ github.event.inputs.table }} --arg notes '${{ github.event.inputs.notes }}' '{date:$date, time:$time, table:$table, notes:$notes}')" >> $GITHUB_OUTPUT
+            echo "payload={\"date\":\"${{ github.event.inputs.date }}\",\"time\":\"${{ github.event.inputs.time }}\",\"table\":${{ github.event.inputs.table }},\"notes\":\"${{ github.event.inputs.notes }}\"}" >> $GITHUB_OUTPUT
           else
             echo "payload=${{ toJson(github.event.client_payload.payload) }}" >> $GITHUB_OUTPUT
           fi
 
+      - name: Debug payload
+        run: |
+          echo "RAW PAYLOAD:"
+          echo "${{ steps.payload.outputs.payload }}"
+
       - name: Run DISH reservation script
         env:
-          RESERVATION_PAYLOAD: ${{ steps.build_payload.outputs.payload }}
+          RESERVATION_PAYLOAD: ${{ steps.payload.outputs.payload }}
           DISH_USERNAME: ${{ secrets.DISH_USERNAME }}
           DISH_PASSWORD: ${{ secrets.DISH_PASSWORD }}
         run: node --loader ts-node/esm scripts/createDishReservation.ts
+
