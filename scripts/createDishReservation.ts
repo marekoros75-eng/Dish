@@ -1,173 +1,71 @@
-const fs = require("fs");
-const { chromium } = require("playwright");
+// scripts/createDishReservation.ts
 
-// -----------------------------------------------------------------------------
-// 1) LOAD & VALIDATE PAYLOAD FROM FILE
-// -----------------------------------------------------------------------------
+import * as fs from "fs";
+import * as path from "path";
 
-function loadPayloadFromFile() {
-  const payloadPath = process.argv[2];
+interface DishReservationPayload {
+  name: string;
+  phone: string;
+  guests: number;
+  date: string; // ISO string nebo "YYYY-MM-DD"
+  time: string; // "HH:mm"
+  note?: string;
+}
 
-  if (!payloadPath) {
-    throw new Error("Missing payload file path argument.");
+function readPayload(filePath: string): DishReservationPayload {
+  const absPath = path.resolve(process.cwd(), filePath);
+
+  if (!fs.existsSync(absPath)) {
+    console.error(`Payload file not found: ${absPath}`);
+    process.exit(1);
   }
 
-  if (!fs.existsSync(payloadPath)) {
-    throw new Error(`Payload file not found at path: ${payloadPath}`);
-  }
+  const raw = fs.readFileSync(absPath, "utf-8");
+  let json: unknown;
 
-  const raw = fs.readFileSync(payloadPath, "utf8").trim();
-
-  if (!raw) {
-    throw new Error("Payload file is empty.");
-  }
-
-  let parsed;
   try {
-    parsed = JSON.parse(raw);
-  } catch (e) {
-    console.error("RAW PAYLOAD CONTENT:", raw);
-    throw new Error("Payload file does not contain valid JSON.");
+    json = JSON.parse(raw);
+  } catch (err) {
+    console.error("Failed to parse payload.json as JSON:", err);
+    process.exit(1);
   }
 
-  if (typeof parsed !== "object" || parsed === null) {
-    console.error("RAW PAYLOAD CONTENT:", raw);
-    throw new Error("Payload JSON is not an object.");
+  const payload = json as Partial<DishReservationPayload>;
+
+  if (!payload.name || !payload.phone || !payload.guests || !payload.date || !payload.time) {
+    console.error("Invalid payload: name, phone, guests, date and time are required.");
+    console.error("Got:", payload);
+    process.exit(1);
   }
 
-  if (!parsed.date) throw new Error("Missing required field: date");
-  if (!parsed.time) throw new Error("Missing required field: time");
-  if (parsed.table === undefined || parsed.table === null) {
-    throw new Error("Missing required field: table");
-  }
-
-  return {
-    date: String(parsed.date),
-    time: String(parsed.time),
-    table: Number(parsed.table),
-    notes: parsed.notes ? String(parsed.notes) : "",
-  };
+  return payload as DishReservationPayload;
 }
 
-const data = loadPayloadFromFile();
+async function createDishReservation(payload: DishReservationPayload): Promise<void> {
+  // Tady by normálně byl call na Dish API nebo cokoliv dalšího.
+  // Zatím jen simulace – ať máš funkční základ.
 
-console.log("=== PAYLOAD LOADED FROM FILE ===");
-console.log(JSON.stringify(data, null, 2));
-console.log("================================");
+  console.log("Creating DISH reservation with payload:");
+  console.log(JSON.stringify(payload, null, 2));
 
-// -----------------------------------------------------------------------------
-// 2) LOAD CREDENTIALS
-// -----------------------------------------------------------------------------
-
-const DISH_USERNAME = process.env.DISH_USERNAME;
-const DISH_PASSWORD = process.env.DISH_PASSWORD;
-
-if (!DISH_USERNAME || !DISH_PASSWORD) {
-  throw new Error("Missing DISH_USERNAME or DISH_PASSWORD environment variables.");
+  // TODO: sem pak doplníš reálný HTTP request na Dish / Lovable / cokoliv.
 }
 
-// -----------------------------------------------------------------------------
-// 3) MAIN AUTOMATION
-// -----------------------------------------------------------------------------
+async function main() {
+  const payloadFile = process.argv[2] || "payload.json";
 
-async function run() {
-  const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage();
+  console.log(`Using payload file: ${payloadFile}`);
 
-  const baseUrl = "https://reservation.dish.co";
+  const payload = readPayload(payloadFile);
 
-  console.log("Opening reservation page…");
-
-  await page.goto(`${baseUrl}/reservation/add?date=${data.date}`, {
-    waitUntil: "networkidle",
-  });
-
-  // LOGIN IF NEEDED
-  if (page.url().includes("login") || page.url().includes("signin")) {
-    console.log("Login required. Filling login form…");
-
-    const emailTab = page.getByRole("tab", { name: /email/i });
-    if (await emailTab.isVisible().catch(() => false)) {
-      await emailTab.click();
-    }
-
-    await page
-      .getByLabel(/username|email/i)
-      .or(page.getByPlaceholder(/email/i))
-      .fill(DISH_USERNAME);
-
-    await page
-      .getByLabel(/password/i)
-      .or(page.getByPlaceholder(/password/i))
-      .fill(DISH_PASSWORD);
-
-    await page
-      .getByRole("button", { name: /sign in|log in|přihlásit/i })
-      .click();
-
-    console.log("Waiting for login to complete…");
-    await page.waitForLoadState("networkidle");
+  try {
+    await createDishReservation(payload);
+    console.log("Reservation created successfully (simulated).");
+    process.exit(0);
+  } catch (err) {
+    console.error("Failed to create reservation:", err);
+    process.exit(1);
   }
-
-  console.log("Opening reservation page after login…");
-
-  await page.goto(`${baseUrl}/reservation/add?date=${data.date}`, {
-    waitUntil: "networkidle",
-  });
-
-  console.log("Reservation page loaded. Filling form…");
-
-  const dateField = page.getByLabel(/date|datum/i);
-  if (await dateField.isVisible().catch(() => false)) {
-    await dateField.fill(data.date);
-  }
-
-  const timeField = page.getByLabel(/time|čas/i);
-  if (await timeField.isVisible().catch(() => false)) {
-    await timeField.fill(data.time);
-  }
-
-  const tableField = page.getByLabel(/table|stůl/i);
-  if (await tableField.isVisible().catch(() => false)) {
-    await tableField.fill(String(data.table));
-  }
-
-  if (data.notes.trim() !== "") {
-    const notesField = page.getByLabel(/note|poznámka/i);
-    if (await notesField.isVisible().catch(() => false)) {
-      await notesField.fill(data.notes);
-    }
-  }
-
-  console.log("Submitting reservation…");
-
-  await page
-    .getByRole("button", {
-      name: /create|vytvořit|uložit|reservation/i,
-    })
-    .click();
-
-  console.log("Waiting for confirmation…");
-
-  await page.waitForTimeout(2000);
-  await page.waitForSelector(
-    /reservation created|rezervace byla úspěšně vytvořena/i,
-    { timeout: 15000 }
-  );
-
-  console.log("Reservation successfully created!");
-  await browser.close();
 }
 
-run().catch((err) => {
-  console.error("Reservation failed:");
-  console.error(err);
-  process.exit(1);
-});
-
-
-
-
-
-
-
+main();
