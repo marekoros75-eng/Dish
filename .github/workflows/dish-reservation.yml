@@ -57,8 +57,6 @@ jobs:
       - name: Run DISH reservation script
         env:
           RESERVATION_PAYLOAD: ${{ steps.build_payload.outputs.payload }}
+          DISH_USERNAME: ${{ secrets.DISH_USERNAME }}
+          DISH_PASSWORD: ${{ secrets.DISH_PASSWORD }}
         run: node --loader ts-node/esm scripts/createDishReservation.ts
-
-
-
-
