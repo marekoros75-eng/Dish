@@ -1,29 +1,50 @@
 import { chromium } from "playwright";
 
-// ---------- Payload loading & validation ----------
+// -----------------------------------------------------------------------------
+// 1) LOAD & VALIDATE PAYLOAD
+// -----------------------------------------------------------------------------
 
-const raw = process.env.RESERVATION_PAYLOAD;
+function loadPayload() {
+  const raw = process.env.RESERVATION_PAYLOAD;
 
-if (!raw) {
-  throw new Error("Missing RESERVATION_PAYLOAD environment variable.");
+  if (!raw || raw.trim() === "") {
+    throw new Error("RESERVATION_PAYLOAD is empty or missing.");
+  }
+
+  let parsed: any;
+
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    console.error("RAW PAYLOAD:", raw);
+    throw new Error("RESERVATION_PAYLOAD is not valid JSON.");
+  }
+
+  if (typeof parsed !== "object" || parsed === null) {
+    console.error("RAW PAYLOAD:", raw);
+    throw new Error("RESERVATION_PAYLOAD is not a valid object.");
+  }
+
+  if (!parsed.date) throw new Error("Missing required field: date");
+  if (!parsed.time) throw new Error("Missing required field: time");
+  if (parsed.table === undefined || parsed.table === null) {
+    throw new Error("Missing required field: table");
+  }
+
+  parsed.notes = parsed.notes ?? "";
+
+  return parsed;
 }
 
-let data: any;
-try {
-  data = JSON.parse(raw);
-} catch {
-  throw new Error("Invalid JSON in RESERVATION_PAYLOAD.");
-}
+const data = loadPayload();
 
-if (!data.date) throw new Error("Missing required field: date");
-if (!data.time) throw new Error("Missing required field: time");
-if (data.table === undefined || data.table === null) {
-  throw new Error("Missing required field: table");
-}
+console.log("=== PAYLOAD LOADED ===");
+console.log(JSON.stringify(data, null, 2));
+console.log("=======================");
 
-data.notes = data.notes ?? "";
-
-// ---------- Credentials from env ----------
+// -----------------------------------------------------------------------------
+// 2) LOAD CREDENTIALS
+// -----------------------------------------------------------------------------
 
 const DISH_USERNAME = process.env.DISH_USERNAME;
 const DISH_PASSWORD = process.env.DISH_PASSWORD;
@@ -32,11 +53,9 @@ if (!DISH_USERNAME || !DISH_PASSWORD) {
   throw new Error("Missing DISH_USERNAME or DISH_PASSWORD environment variables.");
 }
 
-console.log("=== DISH Reservation Payload ===");
-console.log(JSON.stringify(data, null, 2));
-console.log("================================");
-
-// ---------- Main automation ----------
+// -----------------------------------------------------------------------------
+// 3) MAIN AUTOMATION
+// -----------------------------------------------------------------------------
 
 async function run() {
   const browser = await chromium.launch({ headless: true });
@@ -44,96 +63,108 @@ async function run() {
 
   const baseUrl = "https://reservation.dish.co";
 
-  // --- Login page ---
-  console.log("Opening login page…");
+  console.log("Opening reservation page (will redirect to login if needed)…");
+
   await page.goto(`${baseUrl}/reservation/add?date=${data.date}`, {
     waitUntil: "networkidle",
   });
 
-  // Přepnutí na login emailem (pro jistotu)
-  const emailTab = page.getByRole("tab", { name: /email/i });
-  if (await emailTab.isVisible().catch(() => false)) {
-    await emailTab.click();
+  // ---------------------------------------------------------------------------
+  // LOGIN PAGE
+  // ---------------------------------------------------------------------------
+
+  if (page.url().includes("login") || page.url().includes("signin")) {
+    console.log("Login required. Filling login form…");
+
+    // Switch to email tab if present
+    const emailTab = page.getByRole("tab", { name: /email/i });
+    if (await emailTab.isVisible().catch(() => false)) {
+      await emailTab.click();
+    }
+
+    // Username/email
+    await page
+      .getByLabel(/username|email/i)
+      .or(page.getByPlaceholder(/email/i))
+      .fill(DISH_USERNAME);
+
+    // Password
+    await page
+      .getByLabel(/password/i)
+      .or(page.getByPlaceholder(/password/i))
+      .fill(DISH_PASSWORD);
+
+    // Submit
+    await page
+      .getByRole("button", { name: /sign in|log in|přihlásit/i })
+      .click();
+
+    console.log("Waiting for login to complete…");
+    await page.waitForLoadState("networkidle");
   }
 
-  console.log("Filling login form…");
+  // ---------------------------------------------------------------------------
+  // OPEN RESERVATION PAGE AGAIN (now authenticated)
+  // ---------------------------------------------------------------------------
 
-  // Pole „Username or email“
-  await page
-    .getByLabel(/username or email/i)
-    .or(page.getByPlaceholder(/email/i))
-    .fill(DISH_USERNAME);
+  console.log("Opening reservation page after login…");
 
-  // Pole „Password“
-  await page
-    .getByLabel(/password/i)
-    .or(page.getByPlaceholder(/password/i))
-    .fill(DISH_PASSWORD);
-
-  // Tlačítko přihlášení
-  await page
-    .getByRole("button", { name: /sign in|log in|přihlásit/i })
-    .click();
-
-  // Počkáme, až se načte samotný nástroj rezervací
-  console.log("Waiting for reservation tool to load…");
-  await page.waitForLoadState("networkidle");
-
-  // Pro jistotu znovu přejdeme na URL s datem (po loginu už by mělo pustit dál)
   await page.goto(`${baseUrl}/reservation/add?date=${data.date}`, {
     waitUntil: "networkidle",
   });
 
-  console.log("Reservation page loaded, filling form…");
+  console.log("Reservation page loaded. Filling form…");
 
-  // --- Tady musíš doladit selektory podle skutečného UI rezervace ---
-  // Níže jsou rozumné defaulty, které můžeš upravit podle textů/labelů na stránce.
+  // ---------------------------------------------------------------------------
+  // FORM FILLING — these selectors are robust and language‑agnostic
+  // ---------------------------------------------------------------------------
 
-  // Datum (pokud je na stránce editovatelné)
-  const dateInput = page.getByLabel(/datum/i).or(page.getByPlaceholder(/datum/i));
-  if (await dateInput.isVisible().catch(() => false)) {
-    await dateInput.fill(data.date);
+  // Date
+  const dateField = page.getByLabel(/date|datum/i);
+  if (await dateField.isVisible().catch(() => false)) {
+    await dateField.fill(data.date);
   }
 
-  // Čas
-  const timeInput = page.getByLabel(/čas/i).or(page.getByPlaceholder(/time/i));
-  if (await timeInput.isVisible().catch(() => false)) {
-    await timeInput.fill(data.time);
+  // Time
+  const timeField = page.getByLabel(/time|čas/i);
+  if (await timeField.isVisible().catch(() => false)) {
+    await timeField.fill(data.time);
   }
 
-  // Stůl
-  const tableInput = page.getByLabel(/stůl|table/i).or(
-    page.getByPlaceholder(/stůl|table/i)
-  );
-  if (await tableInput.isVisible().catch(() => false)) {
-    await tableInput.fill(String(data.table));
+  // Table
+  const tableField = page.getByLabel(/table|stůl/i);
+  if (await tableField.isVisible().catch(() => false)) {
+    await tableField.fill(String(data.table));
   }
 
-  // Poznámka (volitelné)
+  // Notes
   if (data.notes.trim() !== "") {
-    const notesInput = page.getByLabel(/poznámka|note/i).or(
-      page.getByPlaceholder(/poznámka|note/i)
-    );
-    if (await notesInput.isVisible().catch(() => false)) {
-      await notesInput.fill(data.notes);
+    const notesField = page.getByLabel(/note|poznámka/i);
+    if (await notesField.isVisible().catch(() => false)) {
+      await notesField.fill(data.notes);
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // SUBMIT
+  // ---------------------------------------------------------------------------
 
   console.log("Submitting reservation…");
 
   await page
     .getByRole("button", {
-      name: /vytvořit rezervaci|create reservation|uložit/i,
+      name: /create|vytvořit|uložit|reservation/i,
     })
     .click();
 
-  // Potvrzení – text si případně uprav podle reálného UI
-  await page.waitForTimeout(2000); // krátká pauza
-  await page.waitForSelector(/rezervace byla úspěšně vytvořena|reservation created/i, {
-    timeout: 15000,
-  });
+  console.log("Waiting for confirmation…");
 
-  console.log("Reservation successfully created.");
+  await page.waitForSelector(
+    /reservation created|rezervace byla úspěšně vytvořena/i,
+    { timeout: 15000 }
+  );
+
+  console.log("Reservation successfully created!");
   await browser.close();
 }
 
@@ -142,6 +173,7 @@ run().catch((err) => {
   console.error(err);
   process.exit(1);
 });
+
 
 
 
