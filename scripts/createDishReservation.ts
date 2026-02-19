@@ -5,16 +5,11 @@ import { chromium } from "playwright";
 // 1) LOAD & VALIDATE PAYLOAD FROM FILE
 // -----------------------------------------------------------------------------
 
-function loadPayloadFromFile(): {
-  date: string;
-  time: string;
-  table: number;
-  notes: string;
-} {
+function loadPayloadFromFile() {
   const payloadPath = process.argv[2];
 
   if (!payloadPath) {
-    throw new Error("Missing payload file path argument (expected: node ... createDishReservation.ts payload.json).");
+    throw new Error("Missing payload file path argument.");
   }
 
   if (!fs.existsSync(payloadPath)) {
@@ -81,7 +76,7 @@ async function run() {
 
   const baseUrl = "https://reservation.dish.co";
 
-  console.log("Opening reservation page (may redirect to login)…");
+  console.log("Opening reservation page…");
 
   await page.goto(`${baseUrl}/reservation/add?date=${data.date}`, {
     waitUntil: "networkidle",
@@ -130,7 +125,7 @@ async function run() {
   console.log("Reservation page loaded. Filling form…");
 
   // ---------------------------------------------------------------------------
-  // FORM FILLING – selektory jsou obecné, případně je doladíme podle UI
+  // FORM FILLING
   // ---------------------------------------------------------------------------
 
   const dateField = page.getByLabel(/date|datum/i);
@@ -180,6 +175,7 @@ run().catch((err) => {
   console.error(err);
   process.exit(1);
 });
+
 
 
 
