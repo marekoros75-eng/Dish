@@ -1,56 +1,85 @@
 import { chromium } from "playwright";
 
+// --- Load and validate payload -------------------------------------------------
+
+const raw = process.env.RESERVATION_PAYLOAD;
+
+if (!raw) {
+  throw new Error("Missing RESERVATION_PAYLOAD environment variable.");
+}
+
+let data: any;
+try {
+  data = JSON.parse(raw);
+} catch (e) {
+  throw new Error("Invalid JSON in RESERVATION_PAYLOAD.");
+}
+
+if (!data.date) throw new Error("Missing required field: date");
+if (!data.time) throw new Error("Missing required field: time");
+if (data.table === undefined || data.table === null)
+  throw new Error("Missing required field: table");
+
+data.notes = data.notes ?? "";
+
+// --- Logging -------------------------------------------------------------------
+
+console.log("=== DISH Reservation Payload ===");
+console.log(JSON.stringify(data, null, 2));
+console.log("================================");
+
+// --- Playwright automation ------------------------------------------------------
+
 async function run() {
-  const raw = process.env.RESERVATION_PAYLOAD;
-  if (!raw) throw new Error("Missing RESERVATION_PAYLOAD");
-
-  const data = JSON.parse(raw);
-
-  const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage();
-
-  // 1) Otevřít formulář
-  await page.goto(`https://reservation.dish.co/reservation/add?date=${data.date}`, {
-    waitUntil: "networkidle"
+  const browser = await chromium.launch({
+    headless: true,
   });
 
-  // 2) Najít všechny inputy
-  const inputs = page.locator("input");
+  const page = await browser.newPage();
 
-  // DISH má stabilní pořadí inputů:
-  // 0 = počet hostů
-  // 1 = datum
-  // 2 = čas
-  // 3 = jméno
-  // 4 = příjmení
-  // 5 = telefon
-  // 6 = email
+  console.log("Navigating to DISH reservation page…");
 
-  await inputs.nth(0).fill(String(data.guests));
-  await inputs.nth(1).fill(data.date);
-  await inputs.nth(2).fill(data.time);
-  await inputs.nth(3).fill(data.firstName);
-  await inputs.nth(4).fill(data.lastName);
-  await inputs.nth(5).fill(data.phone);
-  await inputs.nth(6).fill(data.email);
+  await page.goto(
+    `https://reservation.dish.co/reservation/add?date=${data.date}`,
+    { waitUntil: "networkidle" }
+  );
 
-  // 3) Selecty (Doba trvání, Zdroj, Příležitost)
-  const selects = page.locator("select");
+  // --- Fill form fields --------------------------------------------------------
 
-  await selects.nth(0).selectOption(data.duration);
-  await selects.nth(1).selectOption(data.source);
-  await selects.nth(2).selectOption(data.occasion);
+  console.log("Filling reservation form…");
 
-  // 4) Poznámka
-  await page.locator("textarea").fill(data.note ?? "");
+  // Date
+  await page.getByLabel("Datum").fill(data.date);
 
-  // 5) Odeslat formulář
-  await page.getByRole("button").click();
+  // Time
+  await page.getByLabel("Čas").fill(data.time);
 
-  // 6) Počkat na potvrzení
-  await page.waitForTimeout(4000);
+  // Table
+  await page.getByLabel("Stůl").fill(String(data.table));
+
+  // Notes (optional)
+  if (data.notes.trim() !== "") {
+    await page.getByLabel("Poznámka").fill(data.notes);
+  }
+
+  // --- Submit ------------------------------------------------------------------
+
+  console.log("Submitting reservation…");
+
+  await page.getByRole("button", { name: "Vytvořit rezervaci" }).click();
+
+  // Wait for confirmation
+  await page.waitForSelector("text=Rezervace byla úspěšně vytvořena", {
+    timeout: 15000,
+  });
+
+  console.log("Reservation successfully created!");
 
   await browser.close();
 }
 
-run();
+run().catch((err) => {
+  console.error("Reservation failed:");
+  console.error(err);
+  process.exit(1);
+});
