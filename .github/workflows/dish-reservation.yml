@@ -20,7 +20,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
         env:
-          npm_config_cache: false
+          npm_config_cache: "false"
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
@@ -28,4 +28,4 @@ jobs:
       - name: Run DISH reservation script
         env:
           RESERVATION_PAYLOAD: ${{ toJson(github.event.client_payload.payload) }}
-        run: npx ts-node scripts/createDishReservation.ts
+        run: node scripts/dish-reservation.js
