@@ -1,10 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "module": "ESNext",
-    "moduleResolution": "Node",
+    "module": "CommonJS",
+    "outDir": "dist",
     "esModuleInterop": true,
-    "strict": false,
+    "strict": true,
     "skipLibCheck": true
-  }
+  },
+  "include": ["scripts/**/*.ts"]
 }
