@@ -28,10 +28,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -42,21 +42,33 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
-      - name: Build payload file
+      # ---------------------------------------------------------
+      # BUILD PAYLOAD.JSON
+      # ---------------------------------------------------------
+      - name: Build payload.json
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "{\"date\":\"${{ github.event.inputs.date }}\",\"time\":\"${{ github.event.inputs.time }}\",\"table\":${{ github.event.inputs.table }},\"notes\":\"${{ github.event.inputs.notes }}\"}" > payload.json
+            echo "{
+              \"date\": \"${{ github.event.inputs.date }}\",
+              \"time\": \"${{ github.event.inputs.time }}\",
+              \"table\": ${{ github.event.inputs.table }},
+              \"notes\": \"${{ github.event.inputs.notes }}\"
+            }" > payload.json
           else
             echo '${{ toJson(github.event.client_payload.payload) }}' > payload.json
           fi
 
-      - name: Debug payload
-        run: cat payload.json
+      - name: Debug payload.json
+        run: |
+          echo "=== payload.json ==="
+          cat payload.json
+          echo "===================="
 
+      # ---------------------------------------------------------
+      # RUN SCRIPT WITH PAYLOAD.JSON
+      # ---------------------------------------------------------
       - name: Run DISH reservation script
         env:
           DISH_USERNAME: ${{ secrets.DISH_USERNAME }}
           DISH_PASSWORD: ${{ secrets.DISH_PASSWORD }}
         run: node --loader ts-node/esm scripts/createDishReservation.ts payload.json
-
-
