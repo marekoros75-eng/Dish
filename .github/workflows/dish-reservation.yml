@@ -29,6 +29,7 @@ jobs:
       - name: Run DISH reservation script
         env:
           RESERVATION_PAYLOAD: ${{ toJson(github.event.client_payload.payload) }}
-        run: npx ts-node --esm scripts/createDishReservation.ts
+        run: node --loader ts-node/esm scripts/createDishReservation.ts
+
 
 
