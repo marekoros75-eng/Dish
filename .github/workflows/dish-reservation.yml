@@ -71,4 +71,5 @@ jobs:
         env:
           DISH_USERNAME: ${{ secrets.DISH_USERNAME }}
           DISH_PASSWORD: ${{ secrets.DISH_PASSWORD }}
-        run: node --loader ts-node/esm scripts/createDishReservation.ts payload.json
+        run: npx ts-node --esm scripts/createDishReservation.ts payload.json
+
