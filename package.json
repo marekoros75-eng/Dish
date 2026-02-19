@@ -6,8 +6,21 @@
     "start": "ts-node scripts/createDishReservation.ts"
   },
   "dependencies": {
-    "playwright": "^1.42.0",
-    "ts-node": "^10.9.1",
-    "typescript": "^5.0.0"
-  }
+    "playwright": "^1.58.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "description": "",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marekoros75-eng/Dish.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/marekoros75-eng/Dish/issues"
+  },
+  "homepage": "https://github.com/marekoros75-eng/Dish#readme"
 }
