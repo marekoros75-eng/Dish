@@ -43,7 +43,7 @@ jobs:
         run: npx playwright install --with-deps
 
       # ---------------------------------------------------------
-      # BUILD PAYLOAD.JSON
+      # BUILD payload.json
       # ---------------------------------------------------------
       - name: Build payload.json
         run: |
@@ -65,11 +65,12 @@ jobs:
           echo "===================="
 
       # ---------------------------------------------------------
-      # RUN SCRIPT WITH PAYLOAD.JSON
+      # RUN SCRIPT (CommonJS, no ESM loaders)
       # ---------------------------------------------------------
       - name: Run DISH reservation script
         env:
           DISH_USERNAME: ${{ secrets.DISH_USERNAME }}
           DISH_PASSWORD: ${{ secrets.DISH_PASSWORD }}
-        run: npx ts-node --esm scripts/createDishReservation.ts payload.json
+        run: npx ts-node scripts/createDishReservation.ts payload.json
+
 
