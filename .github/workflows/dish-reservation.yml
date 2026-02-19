@@ -2,6 +2,24 @@ name: Create DISH reservation
 
 on:
   workflow_dispatch:
+    inputs:
+      date:
+        description: "Reservation date (YYYY-MM-DD)"
+        required: true
+        type: string
+      time:
+        description: "Reservation time (HH:MM)"
+        required: true
+        type: string
+      table:
+        description: "Table number"
+        required: true
+        type: number
+      notes:
+        description: "Optional notes"
+        required: false
+        type: string
+
   repository_dispatch:
     types: [dish_manual_reservation]
 
@@ -26,10 +44,21 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
+      # Build payload for both workflow_dispatch and repository_dispatch
+      - name: Build reservation payload
+        id: build_payload
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "payload={\"date\":\"${{ github.event.inputs.date }}\",\"time\":\"${{ github.event.inputs.time }}\",\"table\":${{ github.event.inputs.table }},\"notes\":\"${{ github.event.inputs.notes }}\"}" >> $GITHUB_OUTPUT
+          else
+            echo "payload=${{ toJson(github.event.client_payload.payload) }}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Run DISH reservation script
         env:
-          RESERVATION_PAYLOAD: ${{ toJson(github.event.client_payload.payload) }}
+          RESERVATION_PAYLOAD: ${{ steps.build_payload.outputs.payload }}
         run: node --loader ts-node/esm scripts/createDishReservation.ts
+
 
 
 
