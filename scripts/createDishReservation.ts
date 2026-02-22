@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import { fileURLToPath } from "url";
 
 interface DishReservationPayload {
   name: string;
@@ -10,8 +11,13 @@ interface DishReservationPayload {
   note?: string;
 }
 
+// __dirname náhrada pro ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 function readPayload(filePath: string): DishReservationPayload {
-  const absPath = path.resolve(process.cwd(), filePath);
+  // Hledáme payload.json v rootu repozitáře, ne v process.cwd()
+  const absPath = path.resolve(__dirname, "../../", filePath);
 
   if (!fs.existsSync(absPath)) {
     console.error(`Payload file not found: ${absPath}`);
@@ -62,4 +68,3 @@ async function main() {
 }
 
 main();
-
