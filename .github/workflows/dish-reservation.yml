@@ -23,8 +23,4 @@ jobs:
         run: npm run build
 
       - name: Run DISH reservation script
-        run: node dist/scripts/createDishReservation.js payload.json
-
-
-
-
+        run: node dist/scripts/createDishReservation.js "$GITHUB_WORKSPACE/payload.json"
