@@ -1,7 +1,0 @@
-{
-  "guestName": "Testovací Host",
-  "guestCount": 2,
-  "reservationDate": "2026-02-22",
-  "reservationTime": "18:00",
-  "notes": "Automatická rezervace přes GitHub Actions"
-}
