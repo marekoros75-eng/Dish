@@ -23,4 +23,5 @@ jobs:
         run: npm run build
 
       - name: Run DISH reservation script
+        working-directory: ${{ github.workspace }}
         run: node dist/scripts/createDishReservation.js "$GITHUB_WORKSPACE/payload.json"
