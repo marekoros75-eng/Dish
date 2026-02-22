@@ -1,6 +1,5 @@
 import * as fs from "fs";
 import * as path from "path";
-import { fileURLToPath } from "url";
 
 interface DishReservationPayload {
   name: string;
@@ -11,13 +10,8 @@ interface DishReservationPayload {
   note?: string;
 }
 
-// ES module __dirname
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 function readPayload(filePath: string): DishReservationPayload {
-  // 🔥 Nejbezpečnější a jediná správná cesta:
-  // payload.json se hledá VŽDY v rootu repozitáře
+  // Payload se hledá vždy v rootu repozitáře
   const absPath = path.resolve(process.cwd(), filePath);
 
   if (!fs.existsSync(absPath)) {
