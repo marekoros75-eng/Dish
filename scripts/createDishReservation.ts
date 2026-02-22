@@ -11,13 +11,14 @@ interface DishReservationPayload {
   note?: string;
 }
 
-// __dirname náhrada pro ES modules
+// ES module __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 function readPayload(filePath: string): DishReservationPayload {
-  // Hledáme payload.json v rootu repozitáře, ne v process.cwd()
-  const absPath = path.resolve(__dirname, "../../", filePath);
+  // 🔥 Nejbezpečnější a jediná správná cesta:
+  // payload.json se hledá VŽDY v rootu repozitáře
+  const absPath = path.resolve(process.cwd(), filePath);
 
   if (!fs.existsSync(absPath)) {
     console.error(`Payload file not found: ${absPath}`);
