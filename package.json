@@ -1,17 +1,15 @@
 {
   "name": "dish",
   "version": "1.0.0",
-  "type": "commonjs",
+  "type": "module",
+  "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "run:dish": "node dist/scripts/createDishReservation.js payload.json"
+    "start": "node dist/index.js",
+    "reservation": "node dist/scripts/createDishReservation.js payload.json"
   },
   "dependencies": {},
   "devDependencies": {
-    "typescript": "^5.7.0",
-    "@types/node": "^22.10.0"
+    "typescript": "^5.3.3"
   }
 }
-
-
-
